@@ -97,9 +97,47 @@ void midiprogchange(int cmd, int prog) {
 Button button3 = Button(button3Pin,BUTTON_PULLDOWN);
 Button button4 = Button(button4Pin,BUTTON_PULLDOWN);
 
+/*
+ * basssubseq simplification
+ * 
+ * desired behaviour:
+ * a list of notes which are play one by one depending on relativpos
+ * a note should also be turned off before the next note is played
+ * 
+ * is that correct?
+ * coding it by hand works of course, but is error prone.
+ * you can forget or mistype turning the note off, etc.
+ * 
+ * if you make an array of notes (the bassline),
+ * and use that in a function more generically, you end up with way less code,
+ * and more flexibility in trying out new basslines easily.
+ * 
+ * plus: - less errors, because less typing
+ *       - less work, because less typing
+ *       
+ */
 
+int bassline[] = {38,38,50,38,50}; // define the bassline here
+long lastRelativpos = -1; // keep the last relativpos, so we can turn the note off
+
+void basssubseq(long relativpos) {
+
+  // turn off note before
+  if (lastRelativPos != -1) {
+    midiwrite(0x81, bassline[lastRelativpos], 0x00);
+  }
+
+  // play the note
+  midiwrite(0x91, bassline[relativpos], bassvolume);
+
+  // set the lastRelativpos
+  lastRelativpos = relativpos;
+}
+
+/*
 void basssubseq(long relativpos) 
-{ 
+{
+  
   switch(relativpos)
     {
 //    case 0 :
@@ -383,7 +421,35 @@ case 0:
     }    
 
 }
+*/
 
+// also here it could be nice to use arrays instead of coding it by hand
+// something like:
+/*
+ * bool closedHihatNotes[] = {1,1,1,1,1};
+ * bool snareDrumNotes[] =   {0,0,0,0,1};
+ * bool bassDrumNotes[] =    {1,0,0,0,1};
+ * 
+ * void drumsubseq(long relativpos)
+ * {
+ *   // play the notes
+ *   if (closedHihatNotes[relativpos]) {
+ *     midiwrite(0x91, _CLOSEDHIHAT_NOTE, drumvolume);
+ *   }
+ *   if (snareDrumNotes[relativpos]) {
+ *     midiwrite(0x91, _SNAREDRUM_NOTE, drumvolume);
+ *   }
+ *   if (bassDrumNotes[relativpos]) {
+ *     midiwrite(0x91, _BASSDRUM_NOTE, drumvolume);
+ *   }
+ * }
+ * 
+ *   // you could also go and try out mathematical formulas
+ *   if (sin(relativpos * 0.125 * PI) > 0.5) {
+ *     midiwrite(0x91, _BASSDRUM_NOTE, drumvolume);
+ *   }
+ * 
+ */
 
 void drumsubseq(long relativpos) 
 { 
@@ -857,6 +923,90 @@ void SomeButtonHoldHandler(Button& butt)
         stopsynth(); 
   }
 }
+
+/*
+ * ideally also here you would try to work rather with an array of booleans than hardcoded booleans.
+ * 
+ * since your key is a char, and chars are also just numbers, you could even do something like
+ * bool keyPressStatus[256];
+ * 
+ * // use a char to access the array
+ * keyPressStatus['a'] = true;
+ * keyPressStatus['b'] = false;
+ * keyPressStatus[' '] = false;
+ * 
+ * if (iskeyrelease) {
+ *   keyPressStatus[key] = false;
+ * } else {
+ *   if (!keyPressStatus[key]) {
+ *     // things that should happen only once when a key is pressed
+ *     keyPressStatus[key] = true;
+ *     
+ *     if (key == '*') {
+ *       // handle special keys
+ *     } else if (key == 'b') {
+ *       // handle specific letters
+ *     } else if (key >= 'a' && key <= 'Z') {
+ *       // handle all other letters
+ *     } else if (key >= '0' && key <= '9') {
+ *       // handle all other numbers
+ *     } 
+ *   } else {
+ *     // things that should happen continuously when a key is pressed
+ *   }
+ * }
+ * 
+ * and so on.
+ * 
+ * BTW, all this code here is C++
+ * Meaning, you can test out little snippets in a sandbox and check if your assumptions work:
+ * http://www.cpp.sh/
+ * you can write your code in the "main()" function of the sandbox, and try things out
+ * 
+ * for example, you can check that you can indeed use "key" to access an array like keyPressStatus[key]:
+ * // Example program
+#include <iostream>
+
+int main()
+{
+  char key = '0';
+
+  // which number does the key have?
+  std::cout << "number value of '" << key << "' is " << int(key) <<  " \n";
+  
+  bool keyPressStatus[256];
+  
+  keyPressStatus['a'] = false;
+  keyPressStatus[key] = true;
+  
+  if (keyPressStatus['a']) {
+      std::cout << "keyPressStatus['a'] is true!\n";
+  }
+  
+  // using the number or the key as an index in the array should be equivalent,
+  // so all the following statements should be true
+  if (keyPressStatus[48]) {
+      std::cout << "keyPressStatus[48] is true!\n";
+  }
+  
+  if (keyPressStatus[key]) {
+      std::cout << "keyPressStatus[key] is true!\n";
+  }
+  
+  if (keyPressStatus['0']) {
+      std::cout << "keyPressStatus['0'] is true!\n";
+  }
+
+  // except this one, because here we use a random empty index
+  // to make sure that our list is initialized with "false" for each value
+  if (!keyPressStatus[40]) {
+      std::cout << "keyPressStatus[40] is false!\n";
+  }
+}
+
+ * 
+ */
+// 
 
 void KeyboardHandler(char key,bool iskeyrelease)
 {
